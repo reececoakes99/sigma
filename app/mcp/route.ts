@@ -19,9 +19,7 @@ async function githubJson(url: string): Promise<any> {
     },
     next: { revalidate: 300 },
   });
-  if (!response.ok) {
-    throw new Error(`GitHub request failed (${response.status}): ${await response.text()}`);
-  }
+  if (!response.ok) throw new Error(`GitHub request failed (${response.status}): ${await response.text()}`);
   return response.json();
 }
 
@@ -30,17 +28,13 @@ const handler = createMcpHandler(
     server.tool(
       "list_sigma_directory",
       "List files and subdirectories in the SigmaHQ rule repository.",
-      {
-        path: z.string().default("rules").describe("Repository directory, for example rules/windows or rules/linux"),
-      },
+      { path: z.string().default("rules").describe("Repository directory, for example rules/windows or rules/linux") },
       async ({ path }) => {
         try {
           const clean = safePath(path);
           const items = await githubJson(`${API_ROOT}/contents/${clean}?ref=master`);
           if (!Array.isArray(items)) throw new Error("The requested path is not a directory");
-          const text = items
-            .map((item: any) => `${item.type === "dir" ? "directory" : "file"}\t${item.path}`)
-            .join("\n");
+          const text = items.map((item: any) => `${item.type === "dir" ? "directory" : "file"}\t${item.path}`).join("\n");
           return { content: [{ type: "text", text: text || "Directory is empty." }] };
         } catch (error) {
           return { content: [{ type: "text", text: `Error: ${error instanceof Error ? error.message : String(error)}` }], isError: true };
@@ -77,9 +71,7 @@ const handler = createMcpHandler(
     server.tool(
       "get_sigma_rule",
       "Retrieve the complete YAML source of a Sigma rule by repository path.",
-      {
-        path: z.string().min(1).describe("Full rule path returned by search_sigma_rules, ending in .yml or .yaml"),
-      },
+      { path: z.string().min(1).describe("Full rule path returned by search_sigma_rules, ending in .yml or .yaml") },
       async ({ path }) => {
         try {
           const clean = safePath(path);
@@ -87,8 +79,7 @@ const handler = createMcpHandler(
           const encoded = clean.split("/").map(encodeURIComponent).join("/");
           const response = await fetch(`${RAW_ROOT}/${encoded}`, { next: { revalidate: 300 } });
           if (!response.ok) throw new Error(`Rule fetch failed (${response.status})`);
-          const yaml = await response.text();
-          return { content: [{ type: "text", text: yaml }] };
+          return { content: [{ type: "text", text: await response.text() }] };
         } catch (error) {
           return { content: [{ type: "text", text: `Error: ${error instanceof Error ? error.message : String(error)}` }], isError: true };
         }
@@ -103,13 +94,8 @@ const handler = createMcpHandler(
         get_sigma_rule: { description: "Retrieve a Sigma rule's YAML source by path" },
       },
     },
-  },
-  {
-    basePath: "",
-    verboseLogs: true,
-    maxDuration: 60,
-    disableSse: true,
-  },
+  } as any,
+  { basePath: "", verboseLogs: true, maxDuration: 60, disableSse: true },
 );
 
 export { handler as GET, handler as POST, handler as DELETE };
